@@ -14,6 +14,7 @@ plt.rcParams['font.size']=14
 matplotlib.rcParams['xtick.direction'] = 'out'
 matplotlib.rcParams['ytick.direction'] = 'out'
 
+#
 rpkm = 3400. # Rmars in km
 r0km = 120. + rpkm # altitude of electron density peak at subsolar point in km in radial distance
 n0cm3 = 2e5 # peak electron density at the subsolar point, cm-3
