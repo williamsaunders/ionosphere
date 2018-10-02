@@ -10,7 +10,7 @@ import matplotlib.patches as mpatches
 import copy
 
 
-plt.rcParams['font.size']=14
+plt.rcParams['font.size']=12
 matplotlib.rcParams['xtick.direction'] = 'out'
 matplotlib.rcParams['ytick.direction'] = 'out'
 
@@ -24,8 +24,8 @@ nx = 2001
 nc = round((nx-1.)/2)
 ny = 1001
 
-xarr1dkm = (2*np.arange(nx)/(nx-1) - 1) * rpkm 
-yarr1dkm = (np.arange(ny)/(ny-1) + 1) * rpkm
+xarr1dkm = np.linspace(-rpkm, rpkm, nx)
+yarr1dkm = np.linspace(rpkm, 2*rpkm, ny)
 
 xarr2dkm = np.zeros((nx, ny))
 yarr2dkm = np.zeros((nx, ny))
@@ -166,11 +166,15 @@ while i < len(newrevdxdr):
     i += 1
 
 invnelec1dm3 = np.array(invnelec1dm3)
+
+plt.figure(figsize=(10,7))
 plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=3, color='r', label='blob integrated electron column density')
+plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='dashed', linewidth=3, label='peak electron density')
 plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=1, color='b', label='original integrated electron column density')
+plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', label='original peak electron density')
 #plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm, color='b', label='predicted electron column density')
-plt.xlim(1e-10,1e12)
-plt.ylim(0,500)
+plt.xlim(1e-2,1e16)
+plt.ylim(0,400)
 plt.legend()
 plt.savefig('/Users/saunders/Documents/planet_research/elec_half2.png', bbox_inches='tight')
 plt.show()

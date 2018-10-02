@@ -1,4 +1,5 @@
 ### onionpeelviatec.py from onionpeelviatec.pro ###
+### THIS VERSION HAS A LOG SCALE Y GRID ###
 
 # imports
 import numpy as np
@@ -14,26 +15,18 @@ plt.rcParams['font.size']=14
 matplotlib.rcParams['xtick.direction'] = 'out'
 matplotlib.rcParams['ytick.direction'] = 'out'
 
-
-def histedges_equalN(x, nbin):
-    npt = len(x)
-    return np.interp(np.linspace(0, npt, nbin + 1),
-                     np.arange(npt),
-                     np.sort(x))
-
-
 rpkm = 3400. # Rmars in km
 r0km = 120. + rpkm # altitude of electron density peak at subsolar point in km in radial distance
 n0cm3 = 2e5 # peak electron density at the subsolar point, cm-3
 dsh0km = 10. # density scale height, km
 
 # create grid to keep track of electron density
-nx = 20001
+nx = 2001
 nc = round((nx-1.)/2)
-ny = 10001
+ny = 1001
 
 xarr1dkm = np.linspace(-rpkm, rpkm, nx)
-yarr1dkm = np.linspace(rpkm, 2*rpkm, ny)
+yarr1dkm = np.logspace(np.log10(rpkm), np.log10(2*rpkm), ny)
 
 xarr2dkm = np.zeros((nx, ny))
 yarr2dkm = np.zeros((nx, ny))
@@ -83,10 +76,10 @@ plt.grid()
 #plt.gca().add_artist(legend1)
 #plt.title(r'Disk Evolution in $\alpha$-$\dot{M_{pe}}$ Space')
 plt.tight_layout()
-plt.savefig('/Users/saunders/Documents/planet_research/contour_sym-large.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/contour_sym-log.png', bbox_inches='tight')
 plt.show()
 
-
+#%%
 
 
 # unit conversions 
@@ -94,8 +87,13 @@ nelec2dm3 = nelec2dcm3 * 1e6
 xarr1dm = xarr1dkm * 1e3
 yarr1dm = yarr1dkm * 1e3
 
-dl = xarr1dm[1] - xarr1dm[0]
-tec1dm2 = np.sum(nelec2dm3, axis=0) * dl
+dl = np.roll(xarr1dm, -1) - xarr1dm
+dl[0] = xarr1dm[1] - xarr1dm[0]
+dl[-1] = xarr1dm[-1] - xarr1dm[-2]
+
+tec1dm2 = []
+for k in np.arange(ny):
+    tec1dm2.append(np.sum(nelec2dm3[:,k]*dl))
 
 # change variable names 
 newbigx = np.array(tec1dm2)
@@ -123,7 +121,6 @@ invnelec1dm3 = []
 i = 0
 while i < len(newrevdxdr):
     stuff = 0.
-    print(i, '/', len(newrevdxdr))
     j = i
     while j < len(newrevdxdr) - 1:
         stuff = stuff + .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
@@ -135,9 +132,10 @@ while i < len(newrevdxdr):
 
 invnelec1dm3 = np.array(invnelec1dm3)
 plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=3)
+plt.hlines(yarr1dkm[::20]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='k', linestyles='solid', linewidth=1, alpha=.3)
 plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm)
-plt.xlim(1e-2,1e12)
-plt.ylim(0,400)
-plt.savefig('/Users/saunders/Documents/planet_research/elec_sym-large.png', bbox_inches='tight')
+plt.xlim(1e-10,1e12)
+plt.ylim(0,3000)
+plt.savefig('/Users/saunders/Documents/planet_research/elec_sym-log.png', bbox_inches='tight')
 plt.show()
 
