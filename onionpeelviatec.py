@@ -14,23 +14,15 @@ plt.rcParams['font.size']=14
 matplotlib.rcParams['xtick.direction'] = 'out'
 matplotlib.rcParams['ytick.direction'] = 'out'
 
-
-def histedges_equalN(x, nbin):
-    npt = len(x)
-    return np.interp(np.linspace(0, npt, nbin + 1),
-                     np.arange(npt),
-                     np.sort(x))
-
-
 rpkm = 3400. # Rmars in km
 r0km = 120. + rpkm # altitude of electron density peak at subsolar point in km in radial distance
 n0cm3 = 2e5 # peak electron density at the subsolar point, cm-3
 dsh0km = 10. # density scale height, km
 
 # create grid to keep track of electron density
-nx = 20001
+nx = 2001
 nc = round((nx-1.)/2)
-ny = 10001
+ny = 1001
 
 xarr1dkm = np.linspace(-rpkm, rpkm, nx)
 yarr1dkm = np.linspace(rpkm, 2*rpkm, ny)
@@ -54,43 +46,40 @@ theta2ddeg = theta2rad * np.pi/180.
 dummyx2d = (rarr2dkm - r0km) / dsh0km
 nelec2dcm3 = n0cm3 * np.exp(1 - dummyx2d - np.exp(-dummyx2d))
 
+# convert to m-3
+nelec2dm3 = nelec2dcm3 * 1e6
+n0m3 = n0cm3 * 1e6
+
 # get rid of 0 density values so we can take the log
-x0, y0 = np.where(nelec2dcm3==0)
-nelec2dcm3_0 = copy.copy(nelec2dcm3) #make a copy that we can mess with
-nelec2dcm3_0[x0,y0] = 1e-300
+x0, y0 = np.where(nelec2dm3==0)
+nelec2dm3_0 = copy.copy(nelec2dm3) #make a copy that we can mess with
+nelec2dm3_0[x0,y0] = 1e-300
 
 # make contour plot of electorn density
-#plt.contourf(yarr1dkm, xarr1dkm, nelec2dcm3, np.sort(histedges_equalN(np.concatenate(nelec2dcm3),200)))
-#plt.colorbar()
-#plt.show()
-
-
-# make color contour plot for retention
 plt.figure(figsize=(12,7))
 X = xarr2dkm
 Y = yarr2dkm
-Z = np.log(nelec2dcm3_0)
-CS = plt.contourf(X, Y, Z, [-400,-350,-300,-250,-200,-150,-100,-50,0,50,100], cmap=cm.PuBu_r, vmin=-400, vmax=100)
-cbar = plt.colorbar(CS,ticks=[-400,-350,-300,-250,-200,-150,-100,-50,0,50,100])
-cbar.ax.set_ylabel(r'log electron density [cm$^{-3}$]')
+Z = np.log10(nelec2dm3_0)
+Z2 = np.log10(n0m3) + (-1 - dummyx2d - np.exp(-dummyx2d))*np.log10(np.e)
+contours = [np.min(Z2)] + np.arange(-100,30,10).tolist()
+CS = plt.contourf(X, Y, Z2,  contours, cmap=cm.PuBu_r, vmin=-100, vmax=20)
+cbar = plt.colorbar(CS,ticks=contours)
+cbar.ax.set_ylabel(r'log electron density [m$^{-3}$]')
 
 # formatting and labeling
 plt.xlabel('X position [km]', fontsize=20)
 plt.ylabel('Y position [km]', fontsize=20)
 plt.gcf().subplots_adjust(bottom=0.15)
 plt.grid()
-#plt.legend(loc='lower left')
-#plt.gca().add_artist(legend1)
-#plt.title(r'Disk Evolution in $\alpha$-$\dot{M_{pe}}$ Space')
 plt.tight_layout()
-plt.savefig('/Users/saunders/Documents/planet_research/contour_sym-large.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/contour_sym-whole.png', bbox_inches='tight', dpi=200)
+plt.ylim(3400,3800)
+plt.savefig('/Users/saunders/Documents/planet_research/contour_sym-low.png', bbox_inches='tight', dpi=200)
 plt.show()
 
 
-
-
 # unit conversions 
-nelec2dm3 = nelec2dcm3 * 1e6
+
 xarr1dm = xarr1dkm * 1e3
 yarr1dm = yarr1dkm * 1e3
 
@@ -123,7 +112,7 @@ invnelec1dm3 = []
 i = 0
 while i < len(newrevdxdr):
     stuff = 0.
-    print(i, '/', len(newrevdxdr))
+#    print(i, '/', len(newrevdxdr))
     j = i
     while j < len(newrevdxdr) - 1:
         stuff = stuff + .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
@@ -138,6 +127,6 @@ plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=3)
 plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm)
 plt.xlim(1e-2,1e12)
 plt.ylim(0,400)
-plt.savefig('/Users/saunders/Documents/planet_research/elec_sym-large.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/elec_sym.png', bbox_inches='tight')
 plt.show()
 
