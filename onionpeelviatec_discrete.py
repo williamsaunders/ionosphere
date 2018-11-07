@@ -8,6 +8,7 @@ from matplotlib.mlab import griddata
 from matplotlib import ticker, cm
 import matplotlib.patches as mpatches
 import copy
+from numpy import matrix
 
 
 plt.rcParams['font.size']=14
@@ -105,14 +106,41 @@ newrevdxdr = newdxdr[pp] # ordered spatial derivative of bigx, m-3
 # set first element of newrevdxdr to 0 to avoid problems with numerical integration
 newrevdxdr[-1] = 0.
 
-# electrondensity is the local election density m-3, from corrected data
+# vector X = matrix A * vector N ----> Find matrix A
+
+A = np.zeros((ny, ny))
+deltar = xa[1] - xa[0]
+X = np.flip(newbigx, axis=0)
+r = np.flip(xa, axis=0)
+i = 0
+while i < ny:
+    print(i, '/', ny)
+    rfactor = np.sqrt(r[i]*deltar)
+    j = 0
+    while j <= i:
+        if j == i:
+            numfactor = 1
+        else:
+            numfactor = np.sqrt(2*i + 1 - 2*j) - np.sqrt(2*i - 1 - 2*j)
+        A[i,j] = rfactor*numfactor
+        j += 1
+    i += 1
+
+matA = np.matrix(A)
+matX = matrix(X)
+N = matA.I*matX.T
+N = np.asarray(N)
+N = np.flip(N, axis=0)
+
+
+
 # perform integration
 
 invnelec1dm3 = []
 i = 0
 while i < len(newrevdxdr):
     stuff = 0.
-#    print(i, '/', len(newrevdxdr))
+    print(i, '/', len(newrevdxdr))
     j = i
     while j < len(newrevdxdr) - 1:
         stuff = stuff + .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
@@ -124,11 +152,14 @@ while i < len(newrevdxdr):
 
 invnelec1dm3 = np.array(invnelec1dm3)
 
+
+
 plt.figure(figsize=(12,7))
-plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=3)
-plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm)
+plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=3, color='k')
+plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm, color='b')
+plt.semilogx(N, yarr1dkm-rpkm, linewidth=5, alpha=.5, color='g')
 plt.xlim(1e-2,1e12)
 plt.ylim(0,400)
-#plt.savefig('/Users/saunders/Documents/planet_research/elec_sym.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/matrix_density.png', bbox_inches='tight')
 plt.show()
 

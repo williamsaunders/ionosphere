@@ -1,5 +1,3 @@
-### onionpeelviatec.py from onionpeelviatec.pro ###
-
 # imports
 import numpy as np
 import matplotlib
@@ -8,6 +6,7 @@ from matplotlib.mlab import griddata
 from matplotlib import ticker, cm
 import matplotlib.patches as mpatches
 import copy
+from numpy import matrix
 
 plt.rcParams['font.size']=12
 matplotlib.rcParams['xtick.direction'] = 'out'
@@ -46,19 +45,16 @@ dummyx2d = (rarr2dkm - r0km) / dsh0km
 nelec2dcm3 = n0cm3 * np.exp(1 - dummyx2d - np.exp(-dummyx2d))
 
 # add blob of plasma modeled as a gaussian distribution
-sigma = .03*2001
-mu = (int(nx/2.),int(ny/5.)) ### CENTERED BLOB
-#mu = (int(nx/10),int(ny/5))
+sigma = 30
+y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0]))) #y index of 300 km
+mu = (int(nx/2.),y300km) ### CENTERED BLOB
 xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigma)**2)
 yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigma)**2)
 Xg, Yg= np.meshgrid(yg,xg)
-peak = nelec2dcm3[mu[0],mu[1]]*1e5
-peak2 = np.max(nelec2dcm3)*1e-10
-peak3 = np.max(nelec2dcm3)*1e-10  ### FOR CENTERED BLOB TO BREAK IT
-nelec2dcm3_g = n0cm3*Xg*Yg*peak2
+peak = nelec2dcm3[mu[0],mu[1]]
+nelec2dcm3_g = n0cm3*Xg*Yg*peak
 nelec2dcm3_orig = copy.copy(nelec2dcm3)
 nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
-#nelec2dcm3 = nelec2dcm3_g
 
 # convert to m-3 
 nelec2dm3 = nelec2dcm3 * 1e6
@@ -74,9 +70,8 @@ Z = np.log10(nelec2dcm3_g)
 x0, y0 = np.where(Z==-np.inf)
 Z2 = copy.copy(Z)
 Z2[x0,y0] = -70000
-#contours = [np.min(Z2)] + np.arange(-100,30,10).tolist()
-contours = [-70000] + np.arange(-100,30,10).tolist()
-CS = plt.contourf(X, Y, Z2,  contours, cmap=cm.PuBu_r, vmin=-100, vmax=20)
+contours = [-70000] + np.arange(-30,30,5).tolist()
+CS = plt.contourf(X, Y, Z2,  contours, cmap=cm.PuBu_r, vmin=-30, vmax=20)
 cbar = plt.colorbar(CS,ticks=contours)
 cbar.ax.set_ylabel(r'log electron density [cm$^{-3}$]')
 plt.xlabel('X position [km]', fontsize=20)
@@ -84,8 +79,9 @@ plt.ylabel('Y position [km]', fontsize=20)
 plt.gcf().subplots_adjust(bottom=0.15)
 plt.grid()
 plt.tight_layout()
-#plt.savefig('/Users/saunders/Documents/planet_research/blob.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/blob.png', bbox_inches='tight', dpi=200)
 plt.show()
+plt.close()
 
 # make contour plot of electorn density
 plt.figure(figsize=(12,7))
@@ -95,9 +91,7 @@ Z = np.log10(nelec2dm3)
 x0, y0 = np.where(Z==-np.inf)
 Z2 = copy.copy(Z)
 Z2[x0,y0] = -70000
-#Z2 = np.log10(n0m3) + (-1 - dummyx2d - np.exp(-dummyx2d))*np.log10(np.e)
-#contours = [np.min(Z2)] + np.arange(-100,30,10).tolist()
-CS = plt.contourf(X, Y, Z2,  contours, cmap=cm.PuBu_r, vmin=-100, vmax=20)
+CS = plt.contourf(X, Y, Z2,  contours, cmap=cm.PuBu_r, vmin=-30, vmax=20)
 cbar = plt.colorbar(CS,ticks=contours)
 cbar.ax.set_ylabel(r'log electron density [m$^{-3}$]')
 
@@ -108,8 +102,10 @@ plt.gcf().subplots_adjust(bottom=0.15)
 plt.grid()
 plt.tight_layout()
 #plt.savefig('/Users/saunders/Documents/planet_research/blob_test/centerblob_NOTbroken.png', bbox_inches='tight', dpi=200)
-#plt.ylim(3400,3800)
-#plt.savefig('/Users/saunders/Documents/planet_research/contour_blob-low.png', bbox_inches='tight', dpi=200)
+plt.ylim(3400,4400)
+plt.xlim(-500,500)
+#plt.axes().set_aspect('equal')
+plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/contour_blob.png', bbox_inches='tight', dpi=200)
 plt.show()
 
 
@@ -147,92 +143,88 @@ newrevdxdr_orig = newdxdr_orig[pp]
 newrevdxdr[-1] = 0.
 newrevdxdr_orig[-1] = 0.
 
-# electrondensity is the local election density m-3, from corrected data
 # perform integration
 
 invnelec1dm3 = []
-invnelec1dm3_OLD = []
 invnelec1dm3_orig = []
+
 
 i = 0
 while i < len(newrevdxdr):
+    print('\r', i, '/', ny, end='   ')
     stuff = 0.
     stuff_orig = 0.
-    Tstuff = 0.  ################
-    Tstuff_orig = 0.  #################
-#    print(i, '/', len(newrevdxdr))
     j = i
     while j < len(newrevdxdr) - 1:
-        '''
-        if (newrevdxdr[j+1] - newrevdxdr[j]) < 0.:
-            stuff_orig = stuff_orig + .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
-                         np.log(reva2[j+1]/reva2[i] + np.sqrt((reva2[j+1]/reva2[i])**2. - 1.)) ) \
-                         * (newrevdxdr_orig[j+1] - newrevdxdr_orig[j])
-            j += 1
-            continue
-        '''
         val = .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
                 np.log(reva2[j+1]/reva2[i] + np.sqrt((reva2[j+1]/reva2[i])**2. - 1.)) ) \
                 * (newrevdxdr[j+1] - newrevdxdr[j])
         val_orig = .5 * ( np.log(reva2[j]/reva2[i] + np.sqrt((reva2[j]/reva2[i])**2. - 1.)) + \
                      np.log(reva2[j+1]/reva2[i] + np.sqrt((reva2[j+1]/reva2[i])**2. - 1.)) ) \
                      * (newrevdxdr_orig[j+1] - newrevdxdr_orig[j])
-        if val >= 0.:
-            stuff = stuff + val
+        stuff = stuff + val
         stuff_orig = stuff_orig + val_orig
-        
-        Tstuff = Tstuff + np.abs(val)
-        Tstuff_orig = Tstuff_orig + np.abs(val_orig)
-        '''
-        if val > 0. and val_orig > 0.:
-            Tstuff = Tstuff + val
-            Tstuff_orig = Tstuff_orig + val_orig
-            j += 1
-            continue
-        elif val < 0. and val_orig > 0.:
-            Tstuff = Tstuff + np.abs(val)
-            Tstuff_orig = Tstuff_orig + val_orig
-            j += 1
-            continue
-        elif val > 0. and val_orig < 0.:
-            Tstuff = Tstuff + stuff
-            Tstuff_orig = Tstuff_orig + np.abs(val_orig)
-            j += 1
-            continue
-        elif val < 0. and val_orig < 0.:
-            Tstuff = Tstuff + np.abs(val)
-            Tstuff_orig = Tstuff_orig + np.abs(val_orig)
-            j += 1
-            continue       
-        '''
         j += 1
-#    if stuff < 0:
-#        invnelec1dm3.append(np.nan)
-#    else:
-#        invnelec1dm3.append(stuff/np.pi)
-    print(i, stuff, Tstuff)
-    invnelec1dm3.append(np.average([stuff, Tstuff])/np.pi)
-    invnelec1dm3_OLD.append(stuff/np.pi)
-    invnelec1dm3_orig.append(np.average([stuff_orig, Tstuff_orig])/np.pi)
+    invnelec1dm3.append(stuff/np.pi)
+    invnelec1dm3_orig.append(stuff_orig/np.pi)
     i += 1
 
 invnelec1dm3 = np.array(invnelec1dm3)
 invnelec1dm3_orig = np.array(invnelec1dm3_orig)
+print('\n')
+
+# perform matrix transformation 
+#vector X = matrix A * vector N ----> Find matrix A
+
+A = np.zeros((ny, ny))
+deltar = xa[1] - xa[0]
+X = np.flip(newbigx, axis=0)
+X_orig = np.flip(newbigx_orig, axis=0) 
+r = np.flip(xa, axis=0)
+i = 0
+while i < ny:
+    print('\r', i, '/', ny, end='   ')
+    rfactor = np.sqrt(r[i]*deltar)
+    j = 0
+    while j <= i:
+        if j == i:
+            numfactor = 1
+        else:
+            numfactor = np.sqrt(2*i + 1 - 2*j) - np.sqrt(2*i - 1 - 2*j)
+        A[i,j] = rfactor*numfactor
+        j += 1
+    i += 1
+
+matA = np.matrix(A)
+matX = matrix(X)
+matX_orig = matrix(X_orig)
+N = matA.I*matX.T
+N = np.flip(np.asarray(N), axis=0)
+N = N.flatten()
+N_orig = matA.I*matX_orig.T
+N_orig = np.flip(np.asarray(N_orig), axis=0)
+N_orig = N_orig.flatten()
+
+
+
+# plot evertying
 
 plt.figure(figsize=(10,7))
-plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=5, color='r', alpha=.5, label='blob integrated electron column density')
-plt.semilogx(invnelec1dm3_OLD, yarr1dkm-rpkm, linewidth=2, color='r', linestyle='dotted', alpha=1, label='blob integrated electron column density')
-plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='\
-dashed', linewidth=3, label='peak electron density')
-plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=4, color='b', alpha=.5, label='original integrated electron column density')
-plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', label='original peak electron density')
-plt.semilogx(nelec2dm3_orig[nc,:], yarr1dkm-rpkm, linewidth=2, color='k', linestyle='dotted', label='predicted electron column density')                              
-plt.xlim(1e-20,1e12)
-plt.ylim(0,2000)
+plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=5, color='r', alpha=.5, label='Able transform local density (with blob)')
+plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='dashed', linewidth=4, label='peak')
+plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=4, color='b', alpha=.5, label='Able transform local density (no blob)')
+plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', linewidth=3, label='peak')
+plt.semilogx(N, yarr1dkm-rpkm, linewidth=3, color='g', alpha=.8, label='Matrix inverse local density (with blob)')
+plt.hlines(yarr1dkm[np.where(N==np.max(N))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='g', linestyles='dashed', linewidth=2, label='peak')
+plt.semilogx(N_orig, yarr1dkm-rpkm, linewidth=3, color='orange', alpha=.5, label='Matrix inverse local density (no blob)')
+plt.hlines(yarr1dkm[np.where(N_orig==np.max(N_orig))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='orange', linestyles='dashed', label='peak')
+plt.xlim(1e-10,1e12)
+plt.ylim(0,1000)
 plt.legend()
-#plt.savefig('/Users/saunders/Documents/planet_research/blob_test/centerblob_NOTbroken_plot.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/local_density1.png', bbox_inches='tight', dpi=200)
 plt.show()
 
+'''
 nelec2dm3_b = np.zeros((nx, ny))
 rarr2dm = rarr2dkm * 1e3
 
@@ -248,7 +240,6 @@ plt.semilogx(tec1dm2_orig, yarr1dkm, 'b', linewidth=7, alpha=.5, label='original
 plt.semilogx(tec1dm2, yarr1dkm, 'r', linewidth=5, alpha=.5, label='blob')
 plt.semilogx(tec1dm2_b, yarr1dkm, 'k', linestyle='dashed', label='backwards')
 plt.legend()
-#plt.savefig('/Users/saunders/Documents/planet_research/blob_test/reverse_centerblob_NOTbroken.png', bbox_inches='tight')
+plt.savefig('/Users/saunders/Documents/planet_research/blob_real/reverse_complicated.png', bbox_inches='tight')
 plt.show()
-
-
+'''
