@@ -45,43 +45,7 @@ nelec2dcm3 = n0cm3 * np.exp(1 - dummyx2d - np.exp(-dummyx2d))
 
 # create radially symmetric gaussian distribution 
 
-'''#another good effort that failed miserably
-sigmay = 30
-y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
-yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[y300km])/sigmay)**2)
-radius_matrix, theta_matrix = np.meshgrid(yg,np.linspace(0, np.pi, nx))
-xx = radius_matrix * np.cos(theta_matrix)
-yy = radius_matrix * np.sin(theta_matrix)
-nelec2dcm3_orig = copy.copy(nelec2dcm3)
-
-
-yarr1dkm_g = np.linspace(rpkm+300, 2*rpkm+300, ny)
-yarr2dkm_g = np.zeros((nx, ny))
-for i, x in zip(range(nx), xarr1dkm):
-    yarr2dkm_g[i,:] = yarr1dkm_g
-rarr2dkm_g = np.sqrt(xarr2dkm**2 + yarr2dkm_g**2)
-dummyx2d_g = (rarr2dkm_g - r0km) / dsh0km
-nelec2dcm3_g = n0cm3 * np.exp(1 - dummyx2d_g - np.exp(-dummyx2d_g))
-real_nelec2dcm3_g = np.vstack([np.zeros((300, ny)), nelec2dcm3_g])
-real_nelec2dcm3_g = real_nelec2dcm3_g[:2001,:]
-nelec2dcm3 = nelec2dcm3 + real_nelec2dcm3_g
-'''
-'''
-# add blob of plasma modeled as a gaussian distribution <--- ORIGINAL
-sigmax = 10
-sigmay = 30
-y0km = np.where(np.isclose(yarr1dkm-rpkm, 500, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
-mu = (int(nx/2.),y0km) ### CENTERED BLOB
-xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
-yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
-Xg, Yg = np.meshgrid(yg,xg)
-peak = nelec2dcm3[mu[0],mu[1]]
-nelec2dcm3_g = n0cm3*Xg*Yg*peak
-nelec2dcm3_orig = copy.copy(nelec2dcm3)
-nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
-'''
-#yet another not good idea
-# add blob of plasma modeled as a gaussian distribution <--- ORIGINAL
+# CURVED BLOB
 sigmax = 3000
 sigmay = 30
 y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
@@ -98,23 +62,6 @@ peak = nelec2dcm3[mu[0],mu[1]]
 nelec2dcm3_g = n0cm3*rsomething3*peak*10000
 nelec2dcm3_orig = copy.copy(nelec2dcm3)
 nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
-
-
-'''something I tried
-sigmax = 3000
-sigmay = 30
-y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
-mu = (int(nx/2.),y300km) ### CENTERED BLOB
-xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
-yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
-Xg, Yg = np.meshgrid(yg,xg)
-Rg = np.sqrt(Xg**2 + Yg*2)
-Tg = np.arctan2(Yg, Xg)
-peak = nelec2dcm3[mu[0],mu[1]]
-nelec2dcm3_g = n0cm3*Rg*Tg*peak
-nelec2dcm3_orig = copy.copy(nelec2dcm3)
-nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
-'''
 
 
 # convert to m-3 
