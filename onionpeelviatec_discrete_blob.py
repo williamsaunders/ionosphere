@@ -7,6 +7,7 @@ from matplotlib import ticker, cm
 import matplotlib.patches as mpatches
 import copy
 from numpy import matrix
+import sys
 
 plt.rcParams['font.size']=12
 matplotlib.rcParams['xtick.direction'] = 'out'
@@ -38,23 +39,83 @@ rarr2dkm = np.sqrt(xarr2dkm**2 + yarr2dkm**2)
 theta2rad = np.arctan2(yarr2dkm, xarr2dkm)
 theta2ddeg = theta2rad * np.pi/180.
 
-# solar zenith angle not used at the moment 
-
 # define spherical ionosphere                                                                                                         
 dummyx2d = (rarr2dkm - r0km) / dsh0km
 nelec2dcm3 = n0cm3 * np.exp(1 - dummyx2d - np.exp(-dummyx2d))
 
-# add blob of plasma modeled as a gaussian distribution
-sigma = 30
-y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0]))) #y index of 300 km
-mu = (int(nx/2.),y300km) ### CENTERED BLOB
-xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigma)**2)
-yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigma)**2)
-Xg, Yg= np.meshgrid(yg,xg)
+# create radially symmetric gaussian distribution 
+
+'''#another good effort that failed miserably
+sigmay = 30
+y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
+yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[y300km])/sigmay)**2)
+radius_matrix, theta_matrix = np.meshgrid(yg,np.linspace(0, np.pi, nx))
+xx = radius_matrix * np.cos(theta_matrix)
+yy = radius_matrix * np.sin(theta_matrix)
+nelec2dcm3_orig = copy.copy(nelec2dcm3)
+
+
+yarr1dkm_g = np.linspace(rpkm+300, 2*rpkm+300, ny)
+yarr2dkm_g = np.zeros((nx, ny))
+for i, x in zip(range(nx), xarr1dkm):
+    yarr2dkm_g[i,:] = yarr1dkm_g
+rarr2dkm_g = np.sqrt(xarr2dkm**2 + yarr2dkm_g**2)
+dummyx2d_g = (rarr2dkm_g - r0km) / dsh0km
+nelec2dcm3_g = n0cm3 * np.exp(1 - dummyx2d_g - np.exp(-dummyx2d_g))
+real_nelec2dcm3_g = np.vstack([np.zeros((300, ny)), nelec2dcm3_g])
+real_nelec2dcm3_g = real_nelec2dcm3_g[:2001,:]
+nelec2dcm3 = nelec2dcm3 + real_nelec2dcm3_g
+'''
+'''
+# add blob of plasma modeled as a gaussian distribution <--- ORIGINAL
+sigmax = 10
+sigmay = 30
+y0km = np.where(np.isclose(yarr1dkm-rpkm, 500, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
+mu = (int(nx/2.),y0km) ### CENTERED BLOB
+xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
+yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
+Xg, Yg = np.meshgrid(yg,xg)
 peak = nelec2dcm3[mu[0],mu[1]]
 nelec2dcm3_g = n0cm3*Xg*Yg*peak
 nelec2dcm3_orig = copy.copy(nelec2dcm3)
 nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
+'''
+#yet another not good idea
+# add blob of plasma modeled as a gaussian distribution <--- ORIGINAL
+sigmax = 3000
+sigmay = 30
+y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
+mu = (int(nx/2.),y300km) ### CENTERED BLOB
+xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
+yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
+rarr2dkm0 = np.abs(rarr2dkm - (rpkm + 300))
+rarr2dkm0[rarr2dkm0 > 300] = 0 
+rsomething1 = np.exp(-.5*rarr2dkm0)
+rsomething2 = rsomething1/np.max(rsomething1)
+rsomething3 = copy.copy(rsomething2)
+rsomething3[rsomething3==1.] = 0
+peak = nelec2dcm3[mu[0],mu[1]]
+nelec2dcm3_g = n0cm3*rsomething3*peak*10000
+nelec2dcm3_orig = copy.copy(nelec2dcm3)
+nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
+
+
+'''something I tried
+sigmax = 3000
+sigmay = 30
+y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
+mu = (int(nx/2.),y300km) ### CENTERED BLOB
+xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
+yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
+Xg, Yg = np.meshgrid(yg,xg)
+Rg = np.sqrt(Xg**2 + Yg*2)
+Tg = np.arctan2(Yg, Xg)
+peak = nelec2dcm3[mu[0],mu[1]]
+nelec2dcm3_g = n0cm3*Rg*Tg*peak
+nelec2dcm3_orig = copy.copy(nelec2dcm3)
+nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
+'''
+
 
 # convert to m-3 
 nelec2dm3 = nelec2dcm3 * 1e6
@@ -79,9 +140,10 @@ plt.ylabel('Y position [km]', fontsize=20)
 plt.gcf().subplots_adjust(bottom=0.15)
 plt.grid()
 plt.tight_layout()
-plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/blob.png', bbox_inches='tight', dpi=200)
+plt.title('blob')
+#plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/blob.png', bbox_inches='tight', dpi=200)
 plt.show()
-plt.close()
+
 
 # make contour plot of electorn density
 plt.figure(figsize=(12,7))
@@ -101,13 +163,12 @@ plt.ylabel('Y position [km]', fontsize=20)
 plt.gcf().subplots_adjust(bottom=0.15)
 plt.grid()
 plt.tight_layout()
-#plt.savefig('/Users/saunders/Documents/planet_research/blob_test/centerblob_NOTbroken.png', bbox_inches='tight', dpi=200)
-plt.ylim(3400,4400)
-plt.xlim(-500,500)
-#plt.axes().set_aspect('equal')
-plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/contour_blob.png', bbox_inches='tight', dpi=200)
+#plt.ylim(3400,4400)
+#plt.xlim(-500,500)
+plt.title('blob+symmetrical')
+#plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/contour_blob.png', bbox_inches='tight', dpi=200)
 plt.show()
-
+sys.exit('STOP')
 
 # unit conversions
 xarr1dm = xarr1dkm * 1e3
@@ -148,7 +209,7 @@ newrevdxdr_orig[-1] = 0.
 invnelec1dm3 = []
 invnelec1dm3_orig = []
 
-
+print('\n')
 i = 0
 while i < len(newrevdxdr):
     print('\r', i, '/', ny, end='   ')
@@ -171,11 +232,11 @@ while i < len(newrevdxdr):
 
 invnelec1dm3 = np.array(invnelec1dm3)
 invnelec1dm3_orig = np.array(invnelec1dm3_orig)
-print('\n')
+
 
 # perform matrix transformation 
 #vector X = matrix A * vector N ----> Find matrix A
-
+print('\n')
 A = np.zeros((ny, ny))
 deltar = xa[1] - xa[0]
 X = np.flip(newbigx, axis=0)
@@ -191,7 +252,7 @@ while i < ny:
             numfactor = 1
         else:
             numfactor = np.sqrt(2*i + 1 - 2*j) - np.sqrt(2*i - 1 - 2*j)
-        A[i,j] = rfactor*numfactor
+        A[i,j] = 2*rfactor*numfactor
         j += 1
     i += 1
 
@@ -205,14 +266,48 @@ N_orig = matA.I*matX_orig.T
 N_orig = np.flip(np.asarray(N_orig), axis=0)
 N_orig = N_orig.flatten()
 
+'''
+# try scaling down/up N values
+print('\n')
+A = np.zeros((int(ny*10), int(ny*10)))
+x = np.linspace(xa[0], xa[-1], int(ny*10))
+newbigx_large = np.interp(x, xa, newbigx)
+deltar = x[1] - x[0]
+X = np.flip(newbigx_large, axis=0)
+#X_orig = np.flip(newbigx_orig, axis=0) 
+r = np.flip(x, axis=0)
+i = 0
+while i < int(ny*10):
+    print('\r', i, '/', ny, end='   ')
+    rfactor = np.sqrt(r[i]*deltar)
+    j = 0
+    while j <= i:
+        if j == i:
+            numfactor = 1
+        else:
+            numfactor = np.sqrt(2*i + 1 - 2*j) - np.sqrt(2*i - 1 - 2*j)
+        A[i,j] = 2*rfactor*numfactor
+        j += 1
+    i += 1
+
+matA = np.matrix(A)
+matX = matrix(X)
+#matX_orig = matrix(X_orig)
+N = matA.I*matX.T
+N = np.flip(np.asarray(N), axis=0)
+N = N.flatten()
+#N_orig = matA.I*matX_orig.T
+#N_orig = np.flip(np.asarray(N_orig), axis=0)
+#N_orig = N_orig.flatten()
+'''
 
 
 # plot evertying
 
 plt.figure(figsize=(10,7))
-plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=5, color='r', alpha=.5, label='Able transform local density (with blob)')
+plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=5, color='r', alpha=.5, label='Abel transform local density (with blob)')
 plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='dashed', linewidth=4, label='peak')
-plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=4, color='b', alpha=.5, label='Able transform local density (no blob)')
+plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=4, color='b', alpha=.5, label='Abel transform local density (no blob)')
 plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', linewidth=3, label='peak')
 plt.semilogx(N, yarr1dkm-rpkm, linewidth=3, color='g', alpha=.8, label='Matrix inverse local density (with blob)')
 plt.hlines(yarr1dkm[np.where(N==np.max(N))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='g', linestyles='dashed', linewidth=2, label='peak')
@@ -221,7 +316,7 @@ plt.hlines(yarr1dkm[np.where(N_orig==np.max(N_orig))[0]]-rpkm, np.min(invnelec1d
 plt.xlim(1e-10,1e12)
 plt.ylim(0,1000)
 plt.legend()
-plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/local_density1.png', bbox_inches='tight', dpi=200)
+#plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/local_density-scaled_up.png', bbox_inches='tight', dpi=200)
 plt.show()
 
 '''
