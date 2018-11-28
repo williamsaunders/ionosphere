@@ -37,29 +37,29 @@ for i, x in zip(range(nx), xarr1dkm):
 # transform into polar coodinates
 rarr2dkm = np.sqrt(xarr2dkm**2 + yarr2dkm**2)
 theta2rad = np.arctan2(yarr2dkm, xarr2dkm)
-theta2ddeg = theta2rad * np.pi/180.
+theta2ddeg = theta2rad * 180./np.pi
 
 # define spherical ionosphere                                                                                                         
 dummyx2d = (rarr2dkm - r0km) / dsh0km
 nelec2dcm3 = n0cm3 * np.exp(1 - dummyx2d - np.exp(-dummyx2d))
 
-# create radially symmetric gaussian distribution 
-
 # CURVED BLOB
-sigmax = 3000
-sigmay = 30
 y300km = np.where(np.isclose(yarr1dkm-rpkm, 300, atol=.5*(yarr1dkm[1]-yarr1dkm[0])))[0][0] #y index of 300 km
 mu = (int(nx/2.),y300km) ### CENTERED BLOB
-xg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((xarr1dkm-xarr1dkm[mu[0]])/sigmax)**2)
-yg = (1/np.sqrt(2*np.pi)) * np.exp(-.5*((yarr1dkm-yarr1dkm[mu[1]])/sigmay)**2)
+peak = nelec2dcm3[mu[0],mu[1]]
+
 rarr2dkm0 = np.abs(rarr2dkm - (rpkm + 300))
-rarr2dkm0[rarr2dkm0 > 300] = 0 
-rsomething1 = np.exp(-.5*rarr2dkm0)
+rstretchfactor = 4
+rsomething1 = np.exp(-rarr2dkm0*rstretchfactor**-1)
 rsomething2 = rsomething1/np.max(rsomething1)
 rsomething3 = copy.copy(rsomething2)
-rsomething3[rsomething3==1.] = 0
-peak = nelec2dcm3[mu[0],mu[1]]
-nelec2dcm3_g = n0cm3*rsomething3*peak*10000
+
+tstretchfactor = 1e10
+tsomething1 = np.abs(90-theta2ddeg)
+tsomething2 = np.exp(-tsomething1**2*tstretchfactor**-1)
+tsomething3 = tsomething2/np.max(tsomething1)
+
+nelec2dcm3_g = n0cm3*rsomething3*tsomething3*peak
 nelec2dcm3_orig = copy.copy(nelec2dcm3)
 nelec2dcm3 = nelec2dcm3 + nelec2dcm3_g
 
@@ -69,6 +69,7 @@ nelec2dm3 = nelec2dcm3 * 1e6
 nelec2dm3_g = nelec2dcm3_g * 1e6
 nelec2dm3_orig = nelec2dcm3_orig*1e6
 n0m3 = n0cm3 * 1e6
+
 
 # plot just the blob
 plt.figure(figsize=(12,7))
@@ -115,12 +116,12 @@ plt.tight_layout()
 plt.title('blob+symmetrical')
 #plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/contour_blob.png', bbox_inches='tight', dpi=200)
 plt.show()
-sys.exit('STOP')
 
 # unit conversions
 xarr1dm = xarr1dkm * 1e3
 yarr1dm = yarr1dkm * 1e3
 
+#  ABEL TRANSFORM SOLUTION
 dl = xarr1dm[1] - xarr1dm[0]
 tec1dm2 = np.sum(nelec2dm3, axis=0) * dl
 tec1dm2_orig = np.sum(nelec2dm3_orig, axis=0) * dl
@@ -181,7 +182,9 @@ invnelec1dm3 = np.array(invnelec1dm3)
 invnelec1dm3_orig = np.array(invnelec1dm3_orig)
 
 
-# perform matrix transformation 
+
+
+# MATRIX TRANSFORMATION SOLUTION
 #vector X = matrix A * vector N ----> Find matrix A
 print('\n')
 A = np.zeros((ny, ny))
@@ -213,56 +216,57 @@ N_orig = matA.I*matX_orig.T
 N_orig = np.flip(np.asarray(N_orig), axis=0)
 N_orig = N_orig.flatten()
 
-'''
-# try scaling down/up N values
-print('\n')
-A = np.zeros((int(ny*10), int(ny*10)))
-x = np.linspace(xa[0], xa[-1], int(ny*10))
-newbigx_large = np.interp(x, xa, newbigx)
-deltar = x[1] - x[0]
-X = np.flip(newbigx_large, axis=0)
-#X_orig = np.flip(newbigx_orig, axis=0) 
-r = np.flip(x, axis=0)
-i = 0
-while i < int(ny*10):
-    print('\r', i, '/', ny, end='   ')
-    rfactor = np.sqrt(r[i]*deltar)
-    j = 0
-    while j <= i:
-        if j == i:
-            numfactor = 1
-        else:
-            numfactor = np.sqrt(2*i + 1 - 2*j) - np.sqrt(2*i - 1 - 2*j)
-        A[i,j] = 2*rfactor*numfactor
-        j += 1
-    i += 1
 
-matA = np.matrix(A)
-matX = matrix(X)
-#matX_orig = matrix(X_orig)
-N = matA.I*matX.T
-N = np.flip(np.asarray(N), axis=0)
-N = N.flatten()
-#N_orig = matA.I*matX_orig.T
-#N_orig = np.flip(np.asarray(N_orig), axis=0)
-#N_orig = N_orig.flatten()
-'''
+# FIND RESIDUALS
+resid_abel = np.abs(nelec2dm3[nc,:] / invnelec1dm3)
+resid_abel_orig = np.abs(nelec2dm3_orig[nc,:] / invnelec1dm3_orig)
 
+resid_mat = np.abs(nelec2dm3[nc,:] / N)
+resid_mat_orig = np.abs(nelec2dm3_orig[nc,:] / N_orig)
 
-# plot evertying
+# PLOT
+#%%
 
-plt.figure(figsize=(10,7))
+plt.figure(figsize=(15,9))
+plt.subplot(131)
+#expected results
+plt.semilogx(nelec2dm3_orig[nc,:], yarr1dkm-rpkm, linewidth=2, color='k', alpha=.8, label='expected results (no blob)')
+plt.semilogx(nelec2dm3[nc,:], yarr1dkm-rpkm, linewidth=2, color='k', alpha=.8, label='expected results (with blob)')
+# Abel transform 
 plt.semilogx(invnelec1dm3, yarr1dkm-rpkm, linewidth=5, color='r', alpha=.5, label='Abel transform local density (with blob)')
-plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='dashed', linewidth=4, label='peak')
 plt.semilogx(invnelec1dm3_orig, yarr1dkm-rpkm, linewidth=4, color='b', alpha=.5, label='Abel transform local density (no blob)')
-plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', linewidth=3, label='peak')
+# Matrix solution
 plt.semilogx(N, yarr1dkm-rpkm, linewidth=3, color='g', alpha=.8, label='Matrix inverse local density (with blob)')
-plt.hlines(yarr1dkm[np.where(N==np.max(N))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='g', linestyles='dashed', linewidth=2, label='peak')
 plt.semilogx(N_orig, yarr1dkm-rpkm, linewidth=3, color='orange', alpha=.5, label='Matrix inverse local density (no blob)')
+'''
+# peaks
+plt.hlines(yarr1dkm[invnelec1dm3==np.max(invnelec1dm3)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='r', linestyles='dashed', linewidth=4, label='peak')
+plt.hlines(yarr1dkm[invnelec1dm3_orig==np.max(invnelec1dm3_orig)]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='b', linestyles='dashed', linewidth=3, label='peak')
+plt.hlines(yarr1dkm[np.where(N==np.max(N))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='g', linestyles='dashed', linewidth=2, label='peak')
 plt.hlines(yarr1dkm[np.where(N_orig==np.max(N_orig))[0]]-rpkm, np.min(invnelec1dm3), np.max(invnelec1dm3),color='orange', linestyles='dashed', label='peak')
+'''
 plt.xlim(1e-10,1e12)
 plt.ylim(0,1000)
 plt.legend()
+plt.title('Inverse Method Comparison')
+
+plt.subplot(132) # residuals
+plt.semilogx(resid_abel, yarr1dkm-rpkm, color='b', label='abel (blob)')
+
+plt.semilogx(resid_mat, yarr1dkm-rpkm, color='g', label='matrix (blob)')
+plt.xlim(.5,100)
+plt.ylim(0,1000)
+plt.legend()
+plt.title('Quotient Redisual (blob)')
+
+plt.subplot(133)
+plt.semilogx(resid_abel_orig, yarr1dkm-rpkm, color='b', linestyle='dashed', linewidth=3, alpha=.3, label='abel (no blob)')
+plt.semilogx(resid_mat_orig, yarr1dkm-rpkm, color='g', linestyle='dashed', linewidth=3, alpha=.3, label='matrix (no blob)')
+plt.xlim(.5, 100)
+plt.ylim(0,1000)
+plt.legend(loc='upper right')
+plt.title('Quotient Redisual (no blob)')
+
 #plt.savefig('/Users/saunders/Documents/planet_research/blob_discrete/local_density-scaled_up.png', bbox_inches='tight', dpi=200)
 plt.show()
 
